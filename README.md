@@ -45,3 +45,58 @@ sudo systemctl status apache2
 
 ![apache_running](./img/3.apache_running.jpg)
 
+## Configuring Load Balancer
+
+Edit the `default.conf` file to add the backend web servers into the loadbalancers proxy for routing.
+```
+sudo vi /etc/apache2/sites-available/000-default.conf
+
+```
+```
+#Add this configuration into this section <VirtualHost *:80>  </VirtualHost>
+
+<Proxy "balancer://mycluster">
+               BalancerMember http://<WebServer1-Private-IP-Address>:80 loadfactor=5 timeout=1
+               BalancerMember http://<WebServer2-Private-IP-Address>:80 loadfactor=5 timeout=1
+               ProxySet lbmethod=bytraffic
+               # ProxySet lbmethod=byrequests
+        </Proxy>
+
+        ProxyPreserveHost On
+        ProxyPass / balancer://mycluster/
+        ProxyPassReverse / balancer://mycluster/
+```
+**Note:** Only 2 servers were added to the proxy list and also other ways to route traffic aside `bytraffic` includes `byrequests, bybusyness, heartbeats` which can be specified in `ProxySet lbmethod=?` .
+
+![configure_lb](./img/4.configure_lb.jpg)
+
+Restart the apache2 server `sudo systemctl restart apache2`
+
+On the web browser, test the load balancing connection using the public Ip address of our load balancer server.
+![lb_log_browser](./img/6.lb_log_browser.jpg)
+
+To confirm that traffic is routed evenly to both web servers as the load balancer server is receiving traffic (which in our case is by refreshing the webpage) we can check the logs both servers receive `sudo tail -f /var/log/httpd/access_log`
+
+Server1
+![server_1](./img/5.a.serverlogs.jpg)
+Server2
+![server_2](./img/5.b.server_logs.jpg)
+#
+
+## Configuring DNS Names (Locally)
+
+In order not to always provide webserver private ip address whenever a new web server needs to be added on the list of loadbalancer proxy, we can specify them on the hosts file and provide a domain name for each which suites us
+
+```
+sudo vi /etc/hosts
+```
+![dns_setting](./img/7.dns_setting.jpg)
+![dns_config](./img/8.dns_config.jpg)
+
+To see this is play we can curl our dns name on the loadbalancer server. Since the DNS names are local DNS configuration we can only access them locally hence the loadbalancer uses them locally to target the backend web servers
+
+Server1_Web1
+![web1](./img/9.web1.jpg)
+
+Server2_Web2
+![web2](./img/10.web2.jpg)
